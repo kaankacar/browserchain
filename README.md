@@ -9,6 +9,9 @@ ledger. The consensus and ledger logic is ported from stellar-core, and all
 data uses real Stellar XDR (`@stellar/stellar-sdk`). It is not stellar-core
 and cannot talk to Stellar nodes. All XLM on it is play money.
 
+- Live: https://kaankacar.github.io/browserchain/
+- How it works: https://kaankacar.github.io/browserchain/how-it-works.html
+
 ## Run it
 
 ```sh
@@ -21,8 +24,8 @@ agree on a quorum and close a ledger about every 5 seconds. On the Wallet page,
 fund an account with friendbot and send a payment; the other tabs see it in the
 next ledger.
 
-To join from other machines, build the app (`npm run build`), serve `dist/`
-from any static host, and open it on each machine.
+To validate with friends on other machines, everyone opens the live site
+(or your own build, see Deploy).
 
 - Tabs in one browser talk over BroadcastChannel.
 - Browsers on different machines connect over WebRTC. They find each other
@@ -76,6 +79,14 @@ E2E_WEBRTC=1 npx playwright test e2e/webrtc.spec.ts   # real WebRTC over public 
 - `E2E_SLOW=1` adds the large-state spec (about 6 minutes).
 - `src/golden` holds byte-exact vectors for consensus data. Read
   `src/golden/CHANGES.md` before you regenerate them.
+
+## Deploy
+
+`.github/workflows/pages.yml` builds the app and deploys it to GitHub Pages
+on every push to `main`. It sets `BASE_PATH=/<repo>/`, because Pages serves
+the site under the repository name. Any static host works: run
+`BASE_PATH=/ npm run build` and serve `dist/`. The app needs no special
+headers.
 
 ## Docs
 

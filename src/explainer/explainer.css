@@ -1,0 +1,240 @@
+/* Styles of the explainer page (how-it-works.html). Tailwind, the theme tokens
+   and the base styles come from ../index.css, which main.ts imports first. */
+
+/* The same layer order as Tailwind, whichever file the browser reads first. */
+@layer theme, base, components, utilities;
+
+/* Without JavaScript the head script cannot set data-theme: follow the system.
+   The values are the light tokens of ../index.css. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bc-canvas: #f6f6f3;
+    --bc-panel: #ffffff;
+    --bc-raised: #f7f7f4;
+    --bc-sunken: #f1f1ed;
+    --bc-hover: #ecece7;
+    --bc-line: #e4e4de;
+    --bc-line-strong: #d3d3cb;
+    --bc-fg: #17171a;
+    --bc-fg-2: #55555e;
+    --bc-fg-3: #66666f;
+    --bc-ledger: #8e5706;
+    --bc-ledger-fill: #e8a90c;
+    --bc-ledger-ink: #1c1505;
+    --bc-consensus: #6d28d9;
+    --bc-network: #0d6861;
+    --bc-ok: #04694c;
+    --bc-bad: #b11f1f;
+    --bc-warn: #a4370a;
+    --bc-focus: #b45309;
+    --bc-phase-1: #a78bfa;
+    --bc-phase-2: #8b5cf6;
+    --bc-phase-3: #7339e6;
+    --bc-phase-4: #5b21b6;
+    --bc-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -16px rgb(0 0 0 / 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* The theme button shows the theme it switches to, like the app's header. */
+:root[data-theme='light'] .x-dark-only,
+:root:not([data-theme='light']) .x-light-only {
+  display: none;
+}
+
+@layer components {
+  .x-section {
+    scroll-margin-top: 5rem;
+  }
+  .x-section + .x-section {
+    margin-top: 4rem;
+    padding-top: 3.5rem;
+    border-top: 1px solid var(--bc-line);
+  }
+
+  .x-eyebrow {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bc-ledger);
+  }
+  .x-h2 {
+    margin-top: 0.5rem;
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--bc-fg);
+    text-wrap: balance;
+  }
+  .x-h3 {
+    margin-top: 2.75rem;
+    font-size: 1.125rem;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--bc-fg);
+    scroll-margin-top: 5rem;
+  }
+
+  /* Running text. */
+  .x-prose {
+    color: var(--bc-fg-2);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  .x-prose > * + * {
+    margin-top: 1rem;
+  }
+  .x-prose strong {
+    color: var(--bc-fg);
+    font-weight: 600;
+  }
+  .x-prose a,
+  .x-link {
+    color: var(--bc-ledger);
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  .x-prose a:hover,
+  .x-link:hover {
+    text-decoration-thickness: 2px;
+  }
+  .x-prose code,
+  .x-code {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.86em;
+    color: var(--bc-fg);
+    background: var(--bc-raised);
+    border: 1px solid var(--bc-line);
+    border-radius: 0.375rem;
+    padding: 0.06em 0.35em;
+    /* short tokens such as ?fresh=1 stay on one line; add whitespace-normal to a long one */
+    white-space: nowrap;
+  }
+
+  /* Bulleted list. */
+  .x-list > li {
+    position: relative;
+    padding-left: 1.25rem;
+  }
+  .x-list > li + li {
+    margin-top: 0.6rem;
+  }
+  .x-list > li::before {
+    content: '';
+    position: absolute;
+    left: 0.15rem;
+    top: 0.68em;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 2px;
+    background: var(--x-bullet, var(--bc-ledger-fill));
+  }
+
+  /* Numbered steps. Set --x-step on an item to color its number. */
+  .x-steps {
+    counter-reset: x-step;
+  }
+  .x-steps > li {
+    counter-increment: x-step;
+    position: relative;
+    padding-left: 2.6rem;
+    min-height: 1.75rem;
+  }
+  .x-steps > li + li {
+    margin-top: 1rem;
+  }
+  .x-steps > li::before {
+    content: counter(x-step);
+    position: absolute;
+    left: 0;
+    top: 0.1rem;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--x-step, var(--bc-ledger-fill));
+    background: color-mix(in oklab, var(--x-step, var(--bc-ledger-fill)) 14%, transparent);
+    color: var(--bc-fg);
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* Surfaces. */
+  .x-card {
+    min-width: 0;
+    border: 1px solid var(--bc-line);
+    border-radius: 0.75rem;
+    background: var(--bc-panel);
+    box-shadow: var(--bc-shadow);
+    padding: 1.125rem 1.25rem;
+  }
+  .x-callout {
+    border: 1px solid color-mix(in oklab, var(--x-tone, var(--bc-ledger-fill)) 38%, var(--bc-line));
+    border-radius: 0.75rem;
+    background: color-mix(in oklab, var(--x-tone, var(--bc-ledger-fill)) 7%, var(--bc-panel));
+    padding: 1rem 1.125rem;
+  }
+
+  /* Name and description pairs (settings, modules). */
+  .x-kv {
+    border: 1px solid var(--bc-line);
+    border-radius: 0.75rem;
+    background: var(--bc-panel);
+    box-shadow: var(--bc-shadow);
+    overflow: hidden;
+  }
+  .x-kv > div {
+    display: grid;
+    gap: 0.25rem 1.25rem;
+    padding: 0.8rem 1rem;
+  }
+  .x-kv > div + div {
+    border-top: 1px solid var(--bc-line);
+  }
+  .x-kv dt {
+    min-width: 0;
+    color: var(--bc-fg);
+    font-weight: 500;
+    font-size: 0.9375rem;
+  }
+  .x-kv dd {
+    min-width: 0;
+    color: var(--bc-fg-2);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+  @media (min-width: 640px) {
+    .x-kv > div {
+      grid-template-columns: 11rem minmax(0, 1fr);
+    }
+  }
+
+  /* Figures with a hand-drawn SVG. */
+  .x-diagram {
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    height: auto;
+    margin-inline: auto;
+    color: var(--bc-fg);
+  }
+  .x-figure figcaption {
+    color: var(--bc-fg-3);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+}

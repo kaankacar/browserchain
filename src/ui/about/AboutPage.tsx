@@ -176,6 +176,15 @@ export function AboutPage() {
         title="How BrowserChain works"
         icon={BookOpen}
         description="BrowserChain is a TypeScript reimplementation of the Stellar Consensus Protocol (SCP) and the classic Stellar ledger, built on real Stellar XDR. Every open tab is a validator. It is not stellar-core running in the browser, and it is not connected to the Stellar network."
+        actions={
+          <a
+            href="./how-it-works.html"
+            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-line-strong bg-raised px-3.5 text-sm font-medium text-fg transition-colors hover:bg-hover"
+          >
+            Read the full guide
+            <ArrowRight aria-hidden className="size-4" />
+          </a>
+        }
       />
 
       <div className="flex flex-col gap-5">

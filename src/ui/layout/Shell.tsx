@@ -217,9 +217,12 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
               {mock ? 'You are looking at simulated demo data.' : null}
             </span>
           </div>
-          <div className="flex gap-4">
-            <a className="hover:text-fg" href={href.about()}>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <a className="hover:text-fg" href="./how-it-works.html">
               How it works
+            </a>
+            <a className="hover:text-fg" href={href.about()}>
+              About
             </a>
             <a className="hover:text-fg" href={href.validator('scp')}>
               SCP log

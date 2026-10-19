@@ -4,9 +4,1367 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>How BrowserChain works</title>
+    <meta
+      name="description"
+      content="Every browser tab is a validator. How BrowserChain reimplements Stellar's consensus protocol and classic ledger in your browser, how to run a validator with friends, and how it was built."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0a0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="How BrowserChain works" />
+    <meta
+      property="og:description"
+      content="Every browser tab is a validator: a TypeScript reimplementation of Stellar's consensus protocol and classic ledger that runs in your browser."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Set the theme before the first paint: the choice stored by the app or
+      // this page, else the system setting. src/explainer/main.ts keeps it in sync.
+      (function () {
+        var theme = null;
+        try {
+          theme = JSON.parse(localStorage.getItem('browserchain:theme') || 'null');
+        } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f6f6f3' : '#0a0a0c');
+      })();
+    </script>
+    <script type="module" src="/src/explainer/main.ts"></script>
   </head>
   <body>
-    <p>How BrowserChain works. This page is being written.</p>
-    <p><a href="./">Open BrowserChain</a></p>
+    <div class="bc-backdrop flex min-h-screen flex-col">
+      <a
+        href="#main"
+        class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-raised focus:px-3 focus:py-2 focus:text-sm"
+        >Skip to content</a
+      >
+
+      <header class="sticky top-0 z-40 border-b border-line bg-canvas/80 backdrop-blur-md">
+        <div class="mx-auto flex h-14 max-w-[64rem] items-center gap-3 px-4 sm:px-6">
+          <a href="#top" class="flex shrink-0 items-center gap-2 rounded-lg pr-1" aria-label="BrowserChain, back to the top">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <rect x="2.5" y="4.5" width="27" height="23" rx="6" stroke="var(--bc-ledger-fill)" stroke-width="2" />
+              <path d="M2.5 10.5h27" stroke="var(--bc-ledger-fill)" stroke-width="2" />
+              <circle cx="6.5" cy="7.6" r="1" fill="var(--bc-ledger-fill)" />
+              <circle cx="9.8" cy="7.6" r="1" fill="var(--bc-ledger-fill)" />
+              <path d="M10 22.5 16 15l6 7.5H10Z" stroke="var(--bc-consensus)" stroke-width="1.6" stroke-linejoin="round" />
+              <circle cx="16" cy="15" r="2.4" fill="var(--bc-panel)" stroke="var(--bc-consensus)" stroke-width="1.6" />
+              <circle cx="10" cy="22.5" r="2.4" fill="var(--bc-panel)" stroke="var(--bc-network)" stroke-width="1.6" />
+              <circle cx="22" cy="22.5" r="2.4" fill="var(--bc-ledger-fill)" />
+            </svg>
+            <span class="hidden text-[15px] font-semibold tracking-tight text-fg sm:inline">Browser<span class="text-ledger">Chain</span></span>
+          </a>
+          <span aria-hidden="true" class="hidden text-sm text-fg-3 md:inline">/</span>
+          <span class="hidden text-sm font-medium text-fg-2 md:inline">How it works</span>
+          <div class="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              data-theme-toggle
+              hidden
+              aria-label="Switch theme"
+              class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-2 transition-colors hover:bg-hover hover:text-fg"
+            >
+              <svg
+                class="x-dark-only size-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              </svg>
+              <svg
+                class="x-light-only size-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+                />
+              </svg>
+            </button>
+            <a
+              href="./"
+              class="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-ledger-fill px-3.5 text-sm font-semibold text-ledger-ink transition-[filter] duration-150 hover:brightness-110"
+              >Open BrowserChain</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <main id="main" tabindex="-1" class="flex-1 outline-none">
+        <!-- Hero -->
+        <section id="top" class="mx-auto max-w-[64rem] scroll-mt-20 px-4 pb-12 pt-12 sm:px-6 sm:pt-20">
+          <p
+            class="inline-flex items-center gap-2 rounded-full border border-line bg-raised/60 px-3 py-1 text-xs font-medium text-fg-2"
+          >
+            <span aria-hidden="true" class="size-1.5 rounded-full bg-ledger-fill"></span>
+            How BrowserChain works
+          </p>
+          <h1 class="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-fg [text-wrap:balance] sm:text-6xl sm:leading-[1.05]">
+            Every browser tab is a <span class="text-ledger">validator</span>
+          </h1>
+          <p class="mt-6 max-w-2xl text-lg leading-relaxed text-fg-2">
+            BrowserChain is a Stellar-like blockchain that runs entirely in browser tabs. Open the app and your tab starts a validator. It keeps
+            its own copy of the ledger, votes with the other tabs in the Stellar Consensus Protocol (SCP), and closes a new ledger about every
+            5 seconds. There is no BrowserChain server, and the XLM on it is play money.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a
+              href="./"
+              class="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-ledger-fill px-5 text-[15px] font-semibold text-ledger-ink transition-[filter] duration-150 hover:brightness-110"
+            >
+              Open BrowserChain
+              <svg
+                class="size-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14m-7-7 7 7-7 7" />
+              </svg>
+            </a>
+            <a
+              href="https://github.com/kaankacar/browserchain"
+              class="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-line-strong bg-raised px-5 text-[15px] font-medium text-fg transition-colors duration-150 hover:bg-hover"
+            >
+              <svg
+                class="size-4 text-fg-2"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m18 16 4-4-4-4M6 8l-4 4 4 4m8.5-12-5 16" />
+              </svg>
+              Source on GitHub
+            </a>
+          </div>
+          <p class="mt-4 max-w-2xl text-sm leading-relaxed text-fg-3">
+            Opening the app starts a validator in that tab. To look around without one, open the
+            <a class="x-link" href="./?mock=1">demo with simulated data</a>.
+          </p>
+          <dl class="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-xl border border-line bg-panel/70 px-4 py-3">
+              <dt class="text-xs text-fg-3">Ledgers</dt>
+              <dd class="mt-1 text-sm font-medium text-fg">About every 5 s</dd>
+            </div>
+            <div class="rounded-xl border border-line bg-panel/70 px-4 py-3">
+              <dt class="text-xs text-fg-3">Consensus</dt>
+              <dd class="mt-1 text-sm font-medium text-fg">SCP, ported from <span class="whitespace-nowrap">stellar-core</span></dd>
+            </div>
+            <div class="rounded-xl border border-line bg-panel/70 px-4 py-3">
+              <dt class="text-xs text-fg-3">Data</dt>
+              <dd class="mt-1 text-sm font-medium text-fg">Real Stellar XDR</dd>
+            </div>
+            <div class="rounded-xl border border-line bg-panel/70 px-4 py-3">
+              <dt class="text-xs text-fg-3">Money</dt>
+              <dd class="mt-1 text-sm font-medium text-fg">Play XLM, no value</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div class="mx-auto max-w-[64rem] px-4 pb-8 sm:px-6 lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-14">
+          <!-- Table of contents: a box on small screens, a sticky column on large ones -->
+          <nav
+            aria-label="On this page"
+            class="mb-12 rounded-xl border border-line bg-panel p-4 lg:sticky lg:top-20 lg:mb-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wider text-fg-3">On this page</p>
+            <ol class="mt-3 grid grid-cols-1 gap-0.5 min-[440px]:grid-cols-2 lg:grid-cols-1">
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#what"
+                  ><span class="font-mono text-xs text-ledger">01</span>What it is</a
+                >
+              </li>
+              <li>
+                <a
+                  class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg"
+                  href="#validator"
+                  ><span class="font-mono text-xs text-ledger">02</span>Run a validator</a
+                >
+              </li>
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#chain"
+                  ><span class="font-mono text-xs text-ledger">03</span>How the chain works</a
+                >
+              </li>
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#hood"
+                  ><span class="font-mono text-xs text-ledger">04</span>Under the hood</a
+                >
+              </li>
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#built"
+                  ><span class="font-mono text-xs text-ledger">05</span>How it was built</a
+                >
+              </li>
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#limits"
+                  ><span class="font-mono text-xs text-ledger">06</span>Limits</a
+                >
+              </li>
+              <li>
+                <a class="flex items-baseline gap-2.5 rounded-md px-2 py-1.5 text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg" href="#faq"
+                  ><span class="font-mono text-xs text-ledger">07</span>Questions</a
+                >
+              </li>
+            </ol>
+            <div class="mt-5 hidden flex-col gap-2 border-t border-line pt-5 text-sm lg:flex">
+              <a class="x-link" href="./">Open BrowserChain</a>
+              <a class="x-link" href="https://github.com/kaankacar/browserchain">Source on GitHub</a>
+            </div>
+          </nav>
+
+          <article class="min-w-0 max-w-[44rem]">
+            <!-- 01 -->
+            <section id="what" aria-labelledby="what-title" class="x-section">
+              <p class="x-eyebrow">01 · What it is</p>
+              <h2 id="what-title" class="x-h2">What it is, precisely</h2>
+              <div class="x-prose mt-4">
+                <p>
+                  BrowserChain reimplements two parts of Stellar in TypeScript: the Stellar Consensus Protocol and the classic ledger. Every
+                  tab runs both.
+                </p>
+              </div>
+              <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                <div class="x-card">
+                  <h3 class="flex items-center gap-2 text-sm font-semibold text-fg">
+                    <svg
+                      class="size-4 text-ok"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                    It is
+                  </h3>
+                  <ul class="x-list mt-3 text-[15px] leading-relaxed text-fg-2" style="--x-bullet: var(--bc-ok)">
+                    <li>
+                      <strong class="font-semibold text-fg">A port of stellar-core’s SCP:</strong> nomination, the ballot protocol and the
+                      quorum checks. The function names follow the C++ code.
+                    </li>
+                    <li>
+                      <strong class="font-semibold text-fg">A classic Stellar ledger at protocol 23:</strong> accounts, sequence numbers,
+                      fees and reserves, signers and thresholds, trustlines, payments, the order-book DEX with path payments, claimable
+                      balances and clawback. Validity checks and result codes follow stellar-core.
+                    </li>
+                    <li>
+                      <strong class="font-semibold text-fg">Real Stellar XDR</strong> from <code class="x-code">@stellar/stellar-sdk</code>.
+                      Transactions, SCP messages, quorum sets, ledger headers and results decode with any Stellar XDR tool.
+                    </li>
+                  </ul>
+                </div>
+                <div class="x-card">
+                  <h3 class="flex items-center gap-2 text-sm font-semibold text-fg">
+                    <svg
+                      class="size-4 text-warn"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                    It is not
+                  </h3>
+                  <ul class="x-list mt-3 text-[15px] leading-relaxed text-fg-2" style="--x-bullet: var(--bc-warn)">
+                    <li>
+                      <strong class="font-semibold text-fg">stellar-core.</strong> No stellar-core code runs in your tab. The logic is ported
+                      to TypeScript, not compiled.
+                    </li>
+                    <li>
+                      <strong class="font-semibold text-fg">Connected to Stellar.</strong> BrowserChain nodes cannot talk to Stellar nodes.
+                      The peer protocol, the history format and the state hash are its own. Its ledger hashes differ from stellar-core’s.
+                    </li>
+                    <li>
+                      <strong class="font-semibold text-fg">Real money.</strong> It is a separate network with the passphrase
+                      <code class="x-code whitespace-normal">BrowserChain Network ; October 2026</code>. Its XLM has no value.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div class="x-prose mt-6">
+                <p>
+                  Each ported file names its stellar-core source in a header comment. The design, the data formats and every rule are in
+                  <a href="https://github.com/kaankacar/browserchain/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a>.
+                </p>
+              </div>
+            </section>
+
+            <!-- 02 -->
+            <section id="validator" aria-labelledby="validator-title" class="x-section">
+              <p class="x-eyebrow">02 · Run a validator</p>
+              <h2 id="validator-title" class="x-h2">Become a validator in one click</h2>
+              <div class="x-prose mt-4">
+                <p>There is nothing to install and no account to create. Opening the page is the whole setup.</p>
+              </div>
+
+              <figure class="x-figure mt-8 md:grid md:grid-cols-[22rem_minmax(0,1fr)] md:items-start md:gap-8">
+                <svg
+                  class="x-diagram"
+                  viewBox="0 0 360 480"
+                  role="img"
+                  aria-label="Two browsers on two machines. In each browser, every tab has a page that draws the interface and a Web Worker that runs the validator node. The workers of one browser are linked by BroadcastChannel. Tabs on different machines are linked peer to peer by WebRTC, which runs in the page. Public Nostr relays only help set up those connections."
+                >
+                  <defs>
+                    <marker
+                      id="x-topo-arrow"
+                      viewBox="0 0 10 10"
+                      refX="9"
+                      refY="5"
+                      markerUnits="userSpaceOnUse"
+                      markerWidth="9"
+                      markerHeight="9"
+                      orient="auto-start-reverse"
+                    >
+                      <path d="M0 0.5 10 5 0 9.5z" fill="var(--bc-network)" />
+                    </marker>
+                  </defs>
+
+                  <!-- Browser on machine A: three tabs -->
+                  <rect x="0.75" y="0.75" width="358.5" height="226" rx="12" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" stroke-width="1.5" />
+                  <line x1="1.5" y1="28.5" x2="358.5" y2="28.5" stroke="var(--bc-line)" />
+                  <circle cx="15" cy="15" r="3" fill="var(--bc-ledger-fill)" />
+                  <circle cx="25" cy="15" r="3" fill="var(--bc-ledger-fill)" opacity="0.6" />
+                  <circle cx="35" cy="15" r="3" fill="var(--bc-ledger-fill)" opacity="0.35" />
+                  <text x="346" y="19.5" text-anchor="end" font-size="12" fill="var(--bc-fg-2)">Browser on machine A</text>
+
+                  <g>
+                    <rect x="10" y="40" width="300" height="46" rx="8" fill="var(--bc-raised)" stroke="var(--bc-line)" />
+                    <text x="20" y="67.5" font-size="11" fill="var(--bc-fg-3)">Tab 1</text>
+                    <rect x="54" y="46" width="106" height="34" rx="6" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" />
+                    <text x="107" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Page</text>
+                    <text x="107" y="74" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">UI · WebRTC</text>
+                    <line x1="160" y1="63" x2="182" y2="63" stroke="var(--bc-fg-3)" stroke-width="1.5" />
+                    <rect
+                      x="182"
+                      y="46"
+                      width="118"
+                      height="34"
+                      rx="6"
+                      fill="var(--bc-ledger-fill)"
+                      fill-opacity="0.1"
+                      stroke="var(--bc-ledger-fill)"
+                      stroke-width="1.5"
+                    />
+                    <text x="241" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Web Worker</text>
+                    <text x="241" y="74" text-anchor="middle" font-size="11.5" fill="var(--bc-ledger)">validator node</text>
+                    <line x1="300" y1="63" x2="334" y2="63" stroke="var(--bc-network)" stroke-width="2" />
+                  </g>
+                  <g>
+                    <rect x="10" y="94" width="300" height="46" rx="8" fill="var(--bc-raised)" stroke="var(--bc-line)" />
+                    <text x="20" y="121.5" font-size="11" fill="var(--bc-fg-3)">Tab 2</text>
+                    <rect x="54" y="100" width="106" height="34" rx="6" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" />
+                    <text x="107" y="114" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Page</text>
+                    <text x="107" y="128" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">UI · WebRTC</text>
+                    <line x1="160" y1="117" x2="182" y2="117" stroke="var(--bc-fg-3)" stroke-width="1.5" />
+                    <rect
+                      x="182"
+                      y="100"
+                      width="118"
+                      height="34"
+                      rx="6"
+                      fill="var(--bc-ledger-fill)"
+                      fill-opacity="0.1"
+                      stroke="var(--bc-ledger-fill)"
+                      stroke-width="1.5"
+                    />
+                    <text x="241" y="114" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Web Worker</text>
+                    <text x="241" y="128" text-anchor="middle" font-size="11.5" fill="var(--bc-ledger)">validator node</text>
+                    <line x1="300" y1="117" x2="334" y2="117" stroke="var(--bc-network)" stroke-width="2" />
+                  </g>
+                  <g>
+                    <rect x="10" y="148" width="300" height="46" rx="8" fill="var(--bc-raised)" stroke="var(--bc-line)" />
+                    <text x="20" y="175.5" font-size="11" fill="var(--bc-fg-3)">Tab 3</text>
+                    <rect x="54" y="154" width="106" height="34" rx="6" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" />
+                    <text x="107" y="168" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Page</text>
+                    <text x="107" y="182" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">UI · WebRTC</text>
+                    <line x1="160" y1="171" x2="182" y2="171" stroke="var(--bc-fg-3)" stroke-width="1.5" />
+                    <rect
+                      x="182"
+                      y="154"
+                      width="118"
+                      height="34"
+                      rx="6"
+                      fill="var(--bc-ledger-fill)"
+                      fill-opacity="0.1"
+                      stroke="var(--bc-ledger-fill)"
+                      stroke-width="1.5"
+                    />
+                    <text x="241" y="168" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Web Worker</text>
+                    <text x="241" y="182" text-anchor="middle" font-size="11.5" fill="var(--bc-ledger)">validator node</text>
+                    <line x1="300" y1="171" x2="334" y2="171" stroke="var(--bc-network)" stroke-width="2" />
+                  </g>
+                  <line x1="334" y1="63" x2="334" y2="199" stroke="var(--bc-network)" stroke-width="2.5" stroke-linecap="round" />
+                  <text x="348" y="216" text-anchor="end" font-size="12" font-weight="600" fill="var(--bc-network)">BroadcastChannel</text>
+
+                  <!-- Browser on machine B: two tabs -->
+                  <rect x="0.75" y="306.75" width="358.5" height="172.5" rx="12" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" stroke-width="1.5" />
+                  <line x1="1.5" y1="334.5" x2="358.5" y2="334.5" stroke="var(--bc-line)" />
+                  <circle cx="15" cy="321" r="3" fill="var(--bc-ledger-fill)" />
+                  <circle cx="25" cy="321" r="3" fill="var(--bc-ledger-fill)" opacity="0.6" />
+                  <circle cx="35" cy="321" r="3" fill="var(--bc-ledger-fill)" opacity="0.35" />
+                  <text x="346" y="325.5" text-anchor="end" font-size="12" fill="var(--bc-fg-2)">Browser on machine B</text>
+
+                  <g>
+                    <rect x="10" y="346" width="300" height="46" rx="8" fill="var(--bc-raised)" stroke="var(--bc-line)" />
+                    <text x="20" y="373.5" font-size="11" fill="var(--bc-fg-3)">Tab 1</text>
+                    <rect x="54" y="352" width="106" height="34" rx="6" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" />
+                    <text x="107" y="366" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Page</text>
+                    <text x="107" y="380" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">UI · WebRTC</text>
+                    <line x1="160" y1="369" x2="182" y2="369" stroke="var(--bc-fg-3)" stroke-width="1.5" />
+                    <rect
+                      x="182"
+                      y="352"
+                      width="118"
+                      height="34"
+                      rx="6"
+                      fill="var(--bc-ledger-fill)"
+                      fill-opacity="0.1"
+                      stroke="var(--bc-ledger-fill)"
+                      stroke-width="1.5"
+                    />
+                    <text x="241" y="366" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Web Worker</text>
+                    <text x="241" y="380" text-anchor="middle" font-size="11.5" fill="var(--bc-ledger)">validator node</text>
+                    <line x1="300" y1="369" x2="334" y2="369" stroke="var(--bc-network)" stroke-width="2" />
+                  </g>
+                  <g>
+                    <rect x="10" y="400" width="300" height="46" rx="8" fill="var(--bc-raised)" stroke="var(--bc-line)" />
+                    <text x="20" y="427.5" font-size="11" fill="var(--bc-fg-3)">Tab 2</text>
+                    <rect x="54" y="406" width="106" height="34" rx="6" fill="var(--bc-panel)" stroke="var(--bc-line-strong)" />
+                    <text x="107" y="420" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Page</text>
+                    <text x="107" y="434" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">UI · WebRTC</text>
+                    <line x1="160" y1="423" x2="182" y2="423" stroke="var(--bc-fg-3)" stroke-width="1.5" />
+                    <rect
+                      x="182"
+                      y="406"
+                      width="118"
+                      height="34"
+                      rx="6"
+                      fill="var(--bc-ledger-fill)"
+                      fill-opacity="0.1"
+                      stroke="var(--bc-ledger-fill)"
+                      stroke-width="1.5"
+                    />
+                    <text x="241" y="420" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Web Worker</text>
+                    <text x="241" y="434" text-anchor="middle" font-size="11.5" fill="var(--bc-ledger)">validator node</text>
+                    <line x1="300" y1="423" x2="334" y2="423" stroke="var(--bc-network)" stroke-width="2" />
+                  </g>
+                  <line x1="334" y1="369" x2="334" y2="451" stroke="var(--bc-network)" stroke-width="2.5" stroke-linecap="round" />
+                  <text x="348" y="468" text-anchor="end" font-size="12" font-weight="600" fill="var(--bc-network)">BroadcastChannel</text>
+
+                  <!-- Between the machines -->
+                  <line
+                    x1="107"
+                    y1="190"
+                    x2="107"
+                    y2="350"
+                    stroke="var(--bc-network)"
+                    stroke-width="2.5"
+                    marker-start="url(#x-topo-arrow)"
+                    marker-end="url(#x-topo-arrow)"
+                  />
+                  <text x="119" y="260" font-size="13" font-weight="600" fill="var(--bc-network)">WebRTC</text>
+                  <text x="119" y="276" font-size="11.5" fill="var(--bc-fg-3)">peer to peer</text>
+                  <line x1="282" y1="228" x2="282" y2="244" stroke="var(--bc-fg-3)" stroke-dasharray="3 3" />
+                  <line x1="282" y1="288" x2="282" y2="305.5" stroke="var(--bc-fg-3)" stroke-dasharray="3 3" />
+                  <rect x="214" y="244" width="136" height="44" rx="8" fill="var(--bc-panel)" stroke="var(--bc-fg-3)" stroke-dasharray="4 3" />
+                  <text x="282" y="262" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Nostr relays</text>
+                  <text x="282" y="279" text-anchor="middle" font-size="11" fill="var(--bc-fg-3)">connection setup only</text>
+                </svg>
+                <div class="mt-6 md:mt-0">
+                  <h3 class="text-base font-semibold text-fg">When you open the page</h3>
+                  <ol class="x-steps x-prose mt-4 text-[15px]">
+                    <li>
+                      Your tab claims an identity: the first free one of 64 slots in this browser, held with the Web Locks API. Each slot keeps
+                      its own key and chain in IndexedDB.
+                    </li>
+                    <li>The node starts in a Web Worker and looks for peers over BroadcastChannel and WebRTC.</li>
+                    <li>
+                      It waits up to 12 s for peers, because finding peers through Nostr can take several seconds. With
+                      <code>?transport=broadcast</code> it waits 4 s. After the first peer appears, it waits 1 s more for others.
+                    </li>
+                    <li>
+                      If a peer is ahead, the node catches up first. If nobody shows up, it starts validating alone, and the Overview says it is
+                      the only validator.
+                    </li>
+                    <li>It joins the quorum. About every 5 s it proposes a transaction set, votes in SCP and closes the ledger with the others.</li>
+                  </ol>
+                </div>
+                <figcaption class="mt-6 md:col-span-2 md:mt-6">
+                  Every tab is a page plus a Web Worker, and the worker is the validator. Tabs of one browser talk over BroadcastChannel. Tabs
+                  on different machines talk over WebRTC: workers cannot open WebRTC connections, so the page runs them and passes the messages to
+                  its worker. One WebRTC link is drawn; each tab connects to every tab on the other machine.
+                </figcaption>
+              </figure>
+
+              <h3 id="auto-quorum" class="x-h3">The auto quorum</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  In SCP, every validator chooses whom it trusts. In auto mode, the default, BrowserChain chooses for you. Your node trusts itself
+                  and every active validator, and needs about two thirds of them to agree. The threshold is
+                  <code>max(1, ceil(2n/3))</code> of <code>n</code> validators: with 4 validators, any 3 must agree.
+                </p>
+                <p>A validator counts as active when all of these hold:</p>
+                <ul class="x-list">
+                  <li>your node heard from it in the last 9 seconds;</li>
+                  <li>it is synced, booting or stalled, on your chain, and at most one ledger away from you;</li>
+                  <li>
+                    it takes part in SCP: it sent a signed SCP message for a recent ledger. A validator seen for the first time gets 5 seconds of
+                    grace.
+                  </li>
+                </ul>
+                <p>
+                  A new validator joins the quorum at the next ledger. A tab that closes says bye and leaves the quorum at once. A tab that
+                  vanishes without a word stops counting as active after 9 seconds. It then leaves the quorum at the next ledger, or at once if
+                  the open ledger has made no progress for 4 seconds.
+                </p>
+              </div>
+
+              <h3 id="keep-open" class="x-h3">Keep the tab open</h3>
+              <div class="x-callout x-prose mt-4">
+                <p>
+                  <strong>Your tab is the validator.</strong> Close it and the node stops. Each tab is a separate validator with its own key, so
+                  three tabs are three validators. When you open the page again, the new tab takes the first free identity slot. That is usually
+                  the slot you closed, so the same validator comes back, loads its stored chain and catches up.
+                </p>
+              </div>
+              <div class="x-prose mt-4">
+                <p>
+                  Browsers slow down background tabs and sometimes freeze them. A frozen node stops voting, and the others drop it from their
+                  quorum. When the tab wakes up, the node checks that it is still in sync, catches up if it fell behind, and votes again.
+                </p>
+              </div>
+
+              <h3 id="settings" class="x-h3">Settings and switches</h3>
+              <dl class="x-kv mt-4">
+                <div>
+                  <dt><code class="x-code">?fresh=1</code></dt>
+                  <dd>
+                    A new identity and in-memory storage for this tab. The validator stores nothing, and each reload is a new validator. Use it
+                    when a private window blocks IndexedDB.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">?name=alice</code></dt>
+                  <dd>The validator name that peers see. You can also rename the node on the Validator page.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">?network=friends</code></dt>
+                  <dd>A separate network with its own passphrase and genesis. Everyone who wants to meet must use the same name.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">?transport=broadcast</code></dt>
+                  <dd>
+                    Tabs of this browser only, without WebRTC. A lone tab then waits 4 s instead of 12 s. The other values are
+                    <code class="x-code">webrtc</code> and <code class="x-code">both</code>, the default.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">?mock=1</code></dt>
+                  <dd>The interface on simulated data, with no node.</dd>
+                </div>
+                <div>
+                  <dt>Validate switch</dt>
+                  <dd>On the Validator page. Turn it off to watch consensus without voting.</dd>
+                </div>
+                <div>
+                  <dt>Manual quorum</dt>
+                  <dd>
+                    On the Validator page, switch the quorum set from Auto to Manual and pick the validators and the threshold yourself. Nested
+                    sets are allowed. A manual set never changes by itself, and SCP keeps its classic safety guarantees for it.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Resync</dt>
+                  <dd>On the Validator page. It wipes the local chain and catches up from peers. The identity stays.</dd>
+                </div>
+              </dl>
+
+              <h3 id="pages" class="x-h3">What you see</h3>
+              <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div class="x-card">
+                  <h4 class="text-sm font-semibold text-fg">Overview</h4>
+                  <p class="mt-2 text-[15px] leading-relaxed text-fg-2">
+                    The last closed ledger: its hash, its transactions and how many validators agreed on it. A consensus card with each
+                    validator’s latest SCP statement for the open ledger. Then active validators, average close time, recent ledgers, a graph
+                    of the quorum and live transactions.
+                  </p>
+                </div>
+                <div class="x-card">
+                  <h4 class="text-sm font-semibold text-fg">Validator</h4>
+                  <p class="mt-2 text-[15px] leading-relaxed text-fg-2">
+                    This node’s identity and state, the Validate switch and Resync. The quorum set with its threshold, fault tolerance and an
+                    intersection check. A slot inspector, the SCP message log, the peers with their transport, known validators, recent forks
+                    and the node log.
+                  </p>
+                </div>
+              </div>
+              <div class="x-prose mt-4">
+                <p>
+                  The Wallet makes test accounts that friendbot funds, sends payments, issues assets, trades on the DEX and creates claimable
+                  balances. The Explorer shows ledgers, transactions with decoded XDR, and accounts. The Lab decodes, builds, signs and submits
+                  XDR.
+                </p>
+              </div>
+
+              <h3 id="friends" class="x-h3">Try it with friends on other machines</h3>
+              <ol class="x-steps x-prose mt-4">
+                <li>
+                  One person opens <a href="./">kaankacar.github.io/browserchain</a> and keeps the tab in front. After up to 12 seconds it starts
+                  validating alone, and ledgers begin to close.
+                </li>
+                <li>
+                  Friends open the same link on their own machines. Everyone must use the same link, so that all of them run the same version on
+                  the same network.
+                </li>
+                <li>
+                  Each new tab finds the running network over WebRTC, catches up and starts to vote. Finding peers through Nostr can take several
+                  seconds. On the Validator page, the Peers tab lists them with the transport <code>webrtc</code>, and the Overview counts more
+                  active validators.
+                </li>
+                <li>
+                  If a tab started a chain of its own and other tabs joined it, there are now two groups, and they do not merge by themselves. A
+                  tab shows the alert “Another group of validators is on a different chain” when the other group is at least as large as its
+                  own. Press Resync in each tab that shows it.
+                </li>
+              </ol>
+              <div class="x-prose mt-5">
+                <p>
+                  Some networks block direct WebRTC connections. BrowserChain uses public STUN servers but no TURN relay, so two browsers behind
+                  strict firewalls may fail to connect. Tabs of one browser do not need any of this: they talk over BroadcastChannel.
+                </p>
+              </div>
+            </section>
+
+            <!-- 03 -->
+            <section id="chain" aria-labelledby="chain-title" class="x-section">
+              <p class="x-eyebrow">03 · How the chain works</p>
+              <h2 id="chain-title" class="x-h2">How the chain works, in plain words</h2>
+              <div class="x-prose mt-4">
+                <p>
+                  BrowserChain follows Stellar’s design. There is no mining and no staking. Validators agree by federated voting, and every node
+                  applies the same transactions in the same order.
+                </p>
+              </div>
+
+              <h3 id="voting" class="x-h3">Federated voting</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  Each validator lists the validators it trusts and how many of them must agree. That list is its <strong>quorum set</strong>,
+                  for example “any 3 of these 4”. A group that satisfies it is a <strong>quorum slice</strong>. A <strong>quorum</strong> is a
+                  group of validators that contains a slice of each of its members.
+                </p>
+                <p>SCP settles a statement in three steps:</p>
+                <ol class="x-steps">
+                  <li><strong>Vote.</strong> A node votes for a statement that it considers valid.</li>
+                  <li>
+                    <strong>Accept.</strong> It accepts the statement when a quorum that includes it voted for it or accepted it, or when a
+                    <strong>v-blocking set</strong> accepted it. A v-blocking set overlaps every slice of the node, so every quorum of the node
+                    includes at least one of its members.
+                  </li>
+                  <li><strong>Confirm.</strong> It confirms the statement when a quorum accepted it. A confirmed statement is final.</li>
+                </ol>
+                <p>
+                  This is safe as long as any two quorums share an honest validator. The Validator page checks that any two quorums intersect,
+                  when your node knows at most 16 validators.
+                </p>
+              </div>
+
+              <h3 id="rounds" class="x-h3">Two phases for each ledger</h3>
+              <div class="x-prose mt-3">
+                <p>Each ledger is one SCP slot. For each slot, SCP uses federated voting in two phases.</p>
+                <p>
+                  <strong>Nomination</strong> decides what to vote on. A candidate value is a StellarValue: the hash of a transaction set, a
+                  close time, and the signature of the validator that built it. Nomination runs in rounds. Each round has leaders, chosen by a
+                  hash, and nodes vote for their leaders’ values. When candidates are confirmed, every node combines them the same way: the transaction set with the most
+                  operations wins, then the one with the highest fees, then the lowest hash.
+                </p>
+                <p>
+                  <strong>The ballot protocol</strong> makes the choice final. Nodes put the combined value in a ballot and vote to prepare it,
+                  then to commit it. If a slot gets stuck, timers move it on: nomination adds leaders, and the ballot moves to a higher counter.
+                  Nomination round n, or ballot counter n, waits n seconds, up to 30 seconds.
+                </p>
+              </div>
+
+              <h3 id="cycle" class="x-h3">One ledger, about every 5 seconds</h3>
+              <figure class="x-figure mt-6 md:grid md:grid-cols-[22rem_minmax(0,1fr)] md:items-start md:gap-8">
+                <!-- The ring stays in view while the steps beside it scroll (wide screens). -->
+                <div class="md:self-stretch">
+                  <svg
+                    class="x-diagram md:sticky md:top-24"
+                    viewBox="0 0 360 360"
+                    role="img"
+                    aria-label="The ledger cycle as a ring of seven steps: 1 transaction queue, 2 transaction set, 3 nominate, 4 prepare, 5 confirm, 6 externalize, 7 close, then back to 1. Steps 3 to 6 are SCP. The target is one ledger every 5 seconds."
+                  >
+                    <circle cx="180" cy="180" r="128" fill="none" stroke="var(--bc-line-strong)" stroke-width="2" />
+                    <g fill="var(--bc-fg-3)">
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(235.54 64.68) rotate(25.71)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(304.79 151.52) rotate(77.14)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(280.07 259.81) rotate(128.57)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(180 308) rotate(180)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(79.93 259.81) rotate(231.43)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(55.21 151.52) rotate(282.86)" />
+                      <polygon points="-4.5,-4 4.5,0 -4.5,4" transform="translate(124.46 64.68) rotate(334.29)" />
+                    </g>
+                    <path
+                      d="M269.69 200.47A92 92 0 0 1 90.31 200.47"
+                      fill="none"
+                      stroke="var(--bc-consensus)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      opacity="0.55"
+                    />
+                    <text x="180" y="258" text-anchor="middle" font-size="11" font-weight="600" letter-spacing="1" fill="var(--bc-consensus)">SCP</text>
+                    <text x="180" y="188" text-anchor="middle" font-size="30" font-weight="600" fill="currentColor">5 s</text>
+                    <text x="180" y="207" text-anchor="middle" font-size="11.5" fill="var(--bc-fg-3)">target per ledger</text>
+
+                    <g font-size="12">
+                      <rect x="132" y="37" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-ledger-fill)" stroke-width="1.75" />
+                      <text x="180" y="56.2" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">1</tspan><tspan dx="5">Tx queue</tspan>
+                      </text>
+                      <rect x="232.07" y="85.19" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-ledger-fill)" stroke-width="1.75" />
+                      <text x="280.07" y="104.39" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">2</tspan><tspan dx="5">Tx set</tspan>
+                      </text>
+                      <rect x="256.79" y="193.48" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-phase-1)" stroke-width="1.75" />
+                      <text x="304.79" y="212.68" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">3</tspan><tspan dx="5">Nominate</tspan>
+                      </text>
+                      <rect x="187.54" y="280.32" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-phase-2)" stroke-width="1.75" />
+                      <text x="235.54" y="299.52" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">4</tspan><tspan dx="5">Prepare</tspan>
+                      </text>
+                      <rect x="76.46" y="280.32" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-phase-3)" stroke-width="1.75" />
+                      <text x="124.46" y="299.52" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">5</tspan><tspan dx="5">Confirm</tspan>
+                      </text>
+                      <rect x="7.21" y="193.48" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-phase-4)" stroke-width="1.75" />
+                      <text x="55.21" y="212.68" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">6</tspan><tspan dx="5">Externalize</tspan>
+                      </text>
+                      <rect x="31.93" y="85.19" width="96" height="30" rx="15" fill="var(--bc-panel)" stroke="var(--bc-ledger-fill)" stroke-width="1.75" />
+                      <text x="79.93" y="104.39" text-anchor="middle" fill="currentColor">
+                        <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">7</tspan><tspan dx="5">Close</tspan>
+                      </text>
+                    </g>
+                  </svg>
+                </div>
+                <ol class="x-steps x-prose mt-6 text-[15px] md:mt-0">
+                  <li>
+                    <strong>Tx queue.</strong> Every node keeps a queue of transactions. A new transaction is checked (signatures, sequence
+                    number, fee, balance) and sent on to all peers.
+                  </li>
+                  <li>
+                    <strong>Tx set.</strong> When the last ledger has closed and 5 s have passed since its previous tx set, each validator takes
+                    transactions from its queue by fee rate, up to 1,000 operations. It signs a value: the hash of that set and a close time.
+                  </li>
+                  <li style="--x-step: var(--bc-phase-1)">
+                    <strong>Nominate.</strong> Validators vote on these values until some are confirmed, then combine them into one.
+                  </li>
+                  <li style="--x-step: var(--bc-phase-2)">
+                    <strong>Prepare.</strong> The value goes into a ballot. Validators accept, then confirm, that the ballot is prepared.
+                  </li>
+                  <li style="--x-step: var(--bc-phase-3)">
+                    <strong>Confirm.</strong> Validators accept to commit the ballot. From here a node cannot change its value for this ledger.
+                  </li>
+                  <li style="--x-step: var(--bc-phase-4)"><strong>Externalize.</strong> Validators confirm the commit. The value is final.</li>
+                  <li>
+                    <strong>Close.</strong> Every node applies the same transaction set in the same order and gets the same ledger hash. It
+                    stores the ledger, and the cycle starts again.
+                  </li>
+                </ol>
+                <figcaption class="mt-6 md:col-span-2">
+                  The life of one ledger. Steps 3 to 6 are SCP. The Overview shows them live, and the Validator page logs every SCP message.
+                </figcaption>
+              </figure>
+
+              <h3 id="fees" class="x-h3">Fees, reserves and sequence numbers</h3>
+              <div class="x-prose mt-3">
+                <ul class="x-list">
+                  <li>
+                    <strong>Fees.</strong> Each operation costs the base fee, 100 stroops (1 XLM is 10,000,000 stroops). A higher fee bid only
+                    moves a transaction ahead when a ledger is full; the charge stays the base fee. There is no surge pricing.
+                  </li>
+                  <li>
+                    <strong>Reserves.</strong> An account must keep (2 + subentries) × 0.5 XLM. Trustlines, offers, extra signers and data
+                    entries are subentries. A claimable balance adds 0.5 XLM per claimant to the reserve of the account that created it.
+                  </li>
+                  <li>
+                    <strong>Sequence numbers.</strong> Each account has a sequence number, and a transaction must use the next one. So a
+                    transaction cannot be replayed or applied out of order. A node queues up to 16 transactions per account, and replaces a
+                    queued one only for 10 times its fee.
+                  </li>
+                  <li>
+                    <strong>Order.</strong> At close, all fees are charged first. Then each transaction applies all of its operations or none, in
+                    an order that every node computes the same way.
+                  </li>
+                </ul>
+              </div>
+
+              <h3 id="friendbot" class="x-h3">Friendbot and the play money</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  The genesis ledger creates 100 billion play XLM. Sixteen friendbot accounts hold 1 billion each, and the root account holds
+                  the rest. Their keys come from the network passphrase, so anyone can derive them. Rules limit what those keys can do:
+                </p>
+                <ul class="x-list">
+                  <li>The root account is locked: nothing it signs is valid.</li>
+                  <li>
+                    A friendbot account may sign one kind of transaction only: one operation that creates a new account with 10,000 XLM, or
+                    pays an existing account 10,000 XLM, at exactly the base fee.
+                  </li>
+                  <li>A ledger holds at most 16 friendbot transactions.</li>
+                  <li>
+                    When you press Create a test account on the Wallet page, your node builds the friendbot transaction itself, from a friendbot
+                    account assigned to it, and submits it like any other.
+                  </li>
+                </ul>
+              </div>
+
+              <h3 id="dex" class="x-h3">The DEX</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  The order book follows stellar-core at protocol 23. Offers buy and sell any pair of assets and cross by price, then by time,
+                  with stellar-core’s exchange math. Path payments cross several order books in one operation. One operation may cross at most
+                  1,000 offers, and a ledger holds at most 200 operations from transactions that use the DEX.
+                </p>
+              </div>
+
+              <h3 id="catchup" class="x-h3">Catching up</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  A node that falls behind catches up from its peers. There are no history archives: peers serve headers, ledgers and snapshots.
+                </p>
+                <ul class="x-list">
+                  <li>
+                    <strong>Replay.</strong> The node first checks that the ledger headers up to the target link to each other by hash. Then it
+                    downloads ledgers in batches of 64, applies each one itself, and checks that it gets the same header hash.
+                  </li>
+                  <li>
+                    <strong>Snapshot.</strong> A new node with no chain starts from the newest snapshot, if there is one: a full copy of the
+                    state, taken every 64 ledgers.
+                    It checks the snapshot against the state hash in the ledger header, then replays the rest. A node that already has a chain
+                    uses a snapshot only when no peer can serve the ledgers and validators it knew before vouch for the snapshot.
+                  </li>
+                </ul>
+              </div>
+
+              <h3 id="forks" class="x-h3">Forks, and how they end</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  The auto quorum keeps the network live while tabs come and go. The cost: when the network splits, both sides can keep closing
+                  ledgers. That is a fork. Stellar validators avoid forks with quorum sets chosen by hand, and a closed Stellar ledger is never
+                  rolled back. BrowserChain detects forks and resolves them:
+                </p>
+                <ol class="x-steps">
+                  <li>
+                    A node sees a peer with a different header for the same ledger. It walks back to the last ledger they share: the fork point.
+                  </li>
+                  <li>
+                    It counts vouchers for each branch. A voucher is a connected validator whose signed status puts it on that branch. Only
+                    validators that this node saw as active members at or before the fork point count. Keys first seen later count for nothing.
+                  </li>
+                  <li>
+                    The branch with more vouchers wins, and the node counts itself for its own branch. On a tie, the heavier branch wins: the one
+                    whose ledgers since the fork were confirmed by more validators.
+                  </li>
+                  <li>
+                    The losing node rolls back to the fork point, catches up from the winner, and puts its own transactions that are still valid
+                    back in the queue.
+                  </li>
+                </ol>
+                <p>
+                  Why only validators known before the fork? In auto mode anyone can make new keys. If new keys could vote on forks, one person
+                  with many tabs could take over the chain. Two lone tabs that meet have no members to count, so the heavier branch decides.
+                </p>
+                <p>In manual quorum mode, a node never rolls back by itself. It shows a fork alert, and you decide whether to resync.</p>
+              </div>
+
+              <h3 id="strangers" class="x-h3">Groups that never met</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  Two groups of tabs that started apart are strangers: no node in one group ever saw a node of the other as a member. When they
+                  meet, neither follows the other, because to each side the other group looks like a crowd of new keys. Each group keeps its
+                  chain.
+                </p>
+                <p>
+                  A tab shows the alert “Another group of validators is on a different chain” when the other group is at least as large as its
+                  own. Press Resync in the alert. The tab wipes its chain, keeps its identity and catches up from the other group like a new node.
+                  Do this in every tab of that browser that shows the alert.
+                </p>
+                <p>
+                  A tab that comes back after all the validators it knew have left can be stuck the same way. It cannot check the new chain, and
+                  voting alone would build a chain of its own. So it does not vote: the Overview says “This node is not voting”, gives the reason
+                  and offers Resync.
+                </p>
+              </div>
+            </section>
+
+            <!-- 04 -->
+            <section id="hood" aria-labelledby="hood-title" class="x-section">
+              <p class="x-eyebrow">04 · Under the hood</p>
+              <h2 id="hood-title" class="x-h2">Under the hood</h2>
+              <div class="x-prose mt-4">
+                <p>
+                  BrowserChain is plain TypeScript in one repository. Each module has its own tests, and
+                  <a href="https://github.com/kaankacar/browserchain/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a> is the contract
+                  between the modules.
+                </p>
+              </div>
+              <dl class="x-kv mt-6">
+                <div>
+                  <dt><code class="x-code">src/scp</code></dt>
+                  <dd>
+                    SCP: quorum functions, nomination, the ballot protocol and slots. A port of stellar-core’s <code class="x-code">src/scp</code>.
+                    It never touches the network, storage or the clock directly.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/ledger</code></dt>
+                  <dd>
+                    Ledger state, validity checks, operations, transaction sets and ledger close. <code class="x-code">src/ledger/dex</code> holds
+                    the order book and path payments.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/herder</code></dt>
+                  <dd>
+                    The glue: the SCP driver, the transaction queue, transaction set building, pending messages, the quorum policy and the close
+                    pipeline.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/overlay</code></dt>
+                  <dd>
+                    Transports (BroadcastChannel, the WebRTC bridge, an in-memory network for tests), signed hellos, flooding, requests and rate
+                    limits.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/history</code></dt>
+                  <dd>Serves history to peers. Catch-up, fork detection and fork verdicts.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/storage</code></dt>
+                  <dd>IndexedDB and in-memory storage for ledgers, transactions, snapshots and settings.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/node</code></dt>
+                  <dd>
+                    Builds a node from the parts and runs it in the Web Worker. Identity slots, boot, and the RPC client that the interface uses.
+                  </dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/sim</code></dt>
+                  <dd>Many nodes on one virtual clock: partitions, crashes, forks and hostile peers, all repeatable from a seed.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/ui</code></dt>
+                  <dd>The React interface. It asks the node through RPC, and the wallet signs transactions in the page.</dd>
+                </div>
+                <div>
+                  <dt><code class="x-code">src/golden</code></dt>
+                  <dd>Golden byte vectors for consensus data.</dd>
+                </div>
+              </dl>
+
+              <h3 id="hellos" class="x-h3">Signed hellos, bound to the WebRTC channel</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  When two nodes connect, each sends a hello signed with its node key. Over WebRTC the hello also covers a fresh nonce from the
+                  other side and the DTLS channel id: a hash of both peers’ DTLS certificate fingerprints, which each browser reads from its own
+                  connection. A hello made for one connection is useless on any other, so nobody can relay a captured hello to pass as another
+                  node. DTLS encrypts the rest of the channel. BroadcastChannel links never leave the browser.
+                </p>
+              </div>
+
+              <h3 id="signed" class="x-h3">Every consensus message is signed</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  Each SCP message is signed by its node over the network ID and the statement. Each nominated value carries the signature of the
+                  validator that built it, and status announcements are signed too. Nodes check every signature and every hash: transaction
+                  sets, quorum sets, ledger headers and snapshots. Buffers and requests have limits, for example 4 MB per message and 64 peers
+                  per node.
+                </p>
+              </div>
+
+              <h3 id="golden" class="x-h3">Golden byte vectors</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  <code>src/golden</code> freezes the bytes that consensus depends on: the genesis ledger, StrKeys, transaction envelopes, ledger
+                  closes, a signed value, SCP messages and hashes, overlay messages, and a 4-node simulation with its snapshot at ledger 64.
+                  Sixteen tests compare the code with them, so a refactor that changes these bytes fails a test. Every intended change is logged in
+                  <code>src/golden/CHANGES.md</code>.
+                </p>
+              </div>
+
+              <h3 id="determinism" class="x-h3">Deterministic by design</h3>
+              <div class="x-prose mt-3">
+                <p>
+                  Closing a ledger is a pure function of the state, the transaction set and the agreed value. It reads no clock and no random
+                  numbers. The rest of the code gets time from an injected clock. So the same node code runs in your browser and in a simulation
+                  on a virtual clock, where many nodes run fast and every run can be repeated.
+                </p>
+              </div>
+            </section>
+
+            <!-- 05 -->
+            <section id="built" aria-labelledby="built-title" class="x-section">
+              <p class="x-eyebrow">05 · How it was built</p>
+              <h2 id="built-title" class="x-h2">How it was built</h2>
+              <div class="x-prose mt-4">
+                <p>
+                  The idea came from the viral “X running in your browser” projects. Many of them compile existing game code to WebAssembly, and
+                  several use WebRTC for multiplayer. Doing the same with stellar-core, a large C++ program, looked like months of work.
+                  BrowserChain takes another path: it reimplements Stellar’s consensus and classic ledger in TypeScript, and ports the logic and
+                  the tests from stellar-core.
+                </p>
+                <p>
+                  It was built with <a href="https://claude.com/claude-code">Claude Code</a>, Anthropic’s coding agent, in multi-agent
+                  workflows, in this order:
+                </p>
+                <ol class="x-steps">
+                  <li>
+                    <strong>An architecture contract.</strong> <code>docs/ARCHITECTURE.md</code> fixed the module boundaries, the shared types,
+                    the data formats and the rules before the modules were written.
+                  </li>
+                  <li>
+                    <strong>Parallel module agents.</strong> Separate agents built SCP, the ledger, the DEX, overlay and storage, the UI, the
+                    herder, and history with the simulation. Each wrote unit tests, ported from stellar-core’s tests where possible.
+                  </li>
+                  <li>
+                    <strong>Integration into a Web Worker runtime:</strong> one node per tab, an RPC client for the interface, and a bridge that
+                    carries WebRTC from the page into the worker.
+                  </li>
+                  <li>
+                    <strong>End-to-end tests in real browsers.</strong> Playwright opens several tabs as several validators and checks
+                    consensus, restarts, crashes, frozen tabs, forks and the wallet. Two opt-in specs connect two browsers over real WebRTC
+                    through the public relays.
+                  </li>
+                  <li>
+                    <strong>A migration to @stellar/stellar-sdk.</strong> The XDR code moved from the deprecated
+                    <code>@stellar/stellar-base</code> package to the SDK. Golden byte vectors guarded the move.
+                  </li>
+                  <li>
+                    <strong>Adversarial review.</strong> Review agents attacked the code through separate lenses: SCP, ledger, herder, runtime
+                    and UI. After each review, an independent verifier re-ran the evidence for every finding on the code from before and after
+                    the fix, and fixed what did not hold.
+                  </li>
+                  <li>
+                    <strong>Targeted fixes.</strong> Later rounds fixed specific problems, with regression tests. For example: the genesis root
+                    is locked, friendbot transactions follow strict rules and a cap per ledger, fork verdicts count only validators known before
+                    the fork, and hellos are bound to the WebRTC channel.
+                  </li>
+                </ol>
+              </div>
+
+              <h3 id="numbers" class="x-h3">By the numbers</h3>
+              <dl class="mt-4 grid grid-cols-1 gap-3 min-[440px]:grid-cols-2 sm:grid-cols-3">
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">Vitest tests (unit, simulation and golden) in 108 files, all passing</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">1,324</dd>
+                </div>
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">SCP test cases ported from stellar-core’s SCP tests</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">333</dd>
+                </div>
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">Playwright tests in 20 spec files; 3 are opt-in: 2 over real WebRTC, 1 with a large state</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">36</dd>
+                </div>
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">golden tests over 9 groups of frozen consensus bytes</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">16</dd>
+                </div>
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">lines of TypeScript in the app and the node</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">~39,000</dd>
+                </div>
+                <div class="x-card flex flex-col p-4">
+                  <dt class="order-2 mt-1 text-sm leading-snug text-fg-2">lines of tests and test helpers: about 28,900 for Vitest and 2,100 for Playwright</dt>
+                  <dd class="order-1 text-2xl font-semibold tabular-nums tracking-tight text-fg">~31,000</dd>
+                </div>
+              </dl>
+              <div class="x-prose mt-5">
+                <p>
+                  The SCP simulations run networks of 4 to 12 nodes, some with nested quorum sets, with random message delays, crashed nodes,
+                  lost messages, and Byzantine nodes that send conflicting or forged messages. A typical scenario runs 20 random seeds of 20 slots each and checks that no
+                  two nodes ever decide different values. The node simulation in <code>src/sim</code> adds partitions, forks, departures and
+                  hostile peers.
+                </p>
+                <p class="text-sm text-fg-3">
+                  Counted on October 19, 2026: <code>npx vitest run</code> for the tests, the files in <code>e2e/</code> for Playwright, and
+                  <code>wc -l</code> for the lines. Test kits and the simulation harness count as test helpers.
+                </p>
+              </div>
+
+              <h3 id="sources" class="x-h3">Sources</h3>
+              <div class="x-prose mt-3">
+                <p>Only public sources went in:</p>
+                <ul class="x-list">
+                  <li>
+                    <a href="https://github.com/stellar/stellar-core">stellar-core</a> source and tests (Apache-2.0), for SCP, the ledger, the DEX
+                    and the herder.
+                  </li>
+                  <li>
+                    The SCP Internet-Draft,
+                    <a href="https://datatracker.ietf.org/doc/html/draft-mazieres-dinrg-scp-05">draft-mazieres-dinrg-scp-05</a>, to cross-check
+                    the SCP port.
+                  </li>
+                  <li>
+                    npm packages, among them <code>@stellar/stellar-sdk</code> for XDR and keys, Trystero for WebRTC over Nostr, idb for
+                    IndexedDB, React, Tailwind CSS, Vite, Vitest and Playwright.
+                  </li>
+                  <li>Public documentation and web pages.</li>
+                </ul>
+              </div>
+            </section>
+
+            <!-- 06 -->
+            <section id="limits" aria-labelledby="limits-title" class="x-section">
+              <p class="x-eyebrow">06 · Limits</p>
+              <h2 id="limits-title" class="x-h2">Limits, and what is simulated</h2>
+              <div class="x-prose mt-4">
+                <p>BrowserChain is a learning and demo network. Keep these points in mind.</p>
+              </div>
+
+              <h3 id="simulated" class="x-h3">What is simulated</h3>
+              <div class="x-prose mt-3">
+                <ul class="x-list" style="--x-bullet: var(--bc-consensus)">
+                  <li>
+                    <strong>The network, not the consensus.</strong> Validators are browser tabs that come and go. The SCP messages, ledgers and
+                    signatures between them are real.
+                  </li>
+                  <li>
+                    <strong>Auto quorum and fork resolution are BrowserChain additions.</strong> Stellar validators choose their quorum sets by
+                    hand, and a closed Stellar ledger is never rolled back.
+                  </li>
+                  <li><strong>The money.</strong> XLM here has no value, and anyone can derive the friendbot keys.</li>
+                  <li>
+                    <strong>The demo (<code>?mock=1</code>)</strong> runs no consensus. A script plays the validators, makes up traffic and
+                    applies your transactions to a simplified ledger.
+                  </li>
+                </ul>
+              </div>
+
+              <h3 id="simplified" class="x-h3">Simplified compared with Stellar</h3>
+              <div class="x-prose mt-3">
+                <ul class="x-list" style="--x-bullet: var(--bc-warn)">
+                  <li>No Soroban smart contracts, no liquidity pools, no sponsorship operations, no inflation and no surge pricing.</li>
+                  <li>
+                    Only v1 transaction envelopes. Fee-bump and v0 envelopes, and the newer v2 preconditions (minimum sequence age or ledger gap,
+                    extra signers), are not supported. There are no protocol upgrades.
+                  </li>
+                  <li>
+                    A flat state hash replaces the BucketList, and the ledger skip list is not kept. So ledger hashes differ from stellar-core’s.
+                  </li>
+                  <li>History comes from peers, not from history archives. Checkpoints are every 64 ledgers.</li>
+                  <li>
+                    No message authentication code on every message, as stellar-core’s overlay has. A WebRTC link is checked once with a signed
+                    hello bound to its DTLS channel, and DTLS protects the rest. Announcements and consensus messages are signed end to end.
+                  </li>
+                  <li>
+                    Auto quorum favors liveness over safety when the network splits. Manual mode keeps SCP’s classic guarantees for the quorum
+                    you set.
+                  </li>
+                </ul>
+              </div>
+
+              <h3 id="known-limits" class="x-h3">Known limits</h3>
+              <div class="x-prose mt-3">
+                <ul class="x-list" style="--x-bullet: var(--bc-bad)">
+                  <li>
+                    <strong>Open membership.</strong> In auto mode any key can join as a validator. Only validators known before a fork can
+                    decide it, so newcomers cannot. But colluding validators that outnumber the honest ones before a fork can. Groups that
+                    formed apart do not merge on their own; Resync moves a tab to the other chain.
+                  </li>
+                  <li>
+                    <strong>Public friendbot keys.</strong> Anyone can sign for the friendbot accounts. The rules cap the drain at 160,000 XLM
+                    per ledger, so the faucet’s 16 billion XLM could be emptied in about 100,000 ledgers, about 6 days. Anyone can also fill
+                    the 16 friendbot places in each ledger. A node still puts its own requests first in the transaction sets it proposes, so
+                    they get in when one of its sets wins.
+                  </li>
+                  <li>
+                    <strong>Stalls after departures.</strong> When validators leave and one of the remaining validators misbehaves, nomination
+                    can stall in some runs.
+                  </li>
+                  <li>
+                    <strong>Background tabs.</strong> Browsers throttle or freeze tabs in the background. A frozen tab does not vote until it
+                    wakes up.
+                  </li>
+                  <li>
+                    <strong>Strict networks.</strong> There is no TURN relay. Two browsers behind strict NATs or firewalls may not connect over
+                    WebRTC.
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <!-- 07 -->
+            <section id="faq" aria-labelledby="faq-title" class="x-section">
+              <p class="x-eyebrow">07 · Questions</p>
+              <h2 id="faq-title" class="x-h2">Questions</h2>
+              <div class="mt-6 divide-y divide-line overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">Is this real Stellar?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      No. It reimplements Stellar’s consensus protocol and classic ledger in TypeScript, on real Stellar XDR, with logic and
+                      tests ported from stellar-core. But it is a separate network. It cannot talk to Stellar nodes, its ledger hashes differ,
+                      and its XLM has no value.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">Can I use my real keys?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      <strong>No. Never paste a real Stellar secret key into BrowserChain.</strong> Wallet keys are stored unencrypted in your
+                      browser’s local storage, and this is a play-money test network. Use Create a test account on the Wallet page instead: it
+                      makes a new key, and friendbot funds it with 10,000 play XLM.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">What happens when I close the tab?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      Your validator stops. It says bye to its peers, and they drop it from their quorum. Its key and chain stay in IndexedDB.
+                      When you open the page again, the new tab takes the first free identity slot, which is usually the one you closed, and
+                      catches up.
+                    </p>
+                    <p>
+                      If every tab everywhere closes, the network pauses: there is no server that keeps it running. The next tab picks up from
+                      the chain it stored.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">Does it work on phones?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      The interface is built to work at phone width. Phones are not tested, though: the automated tests run in desktop
+                      Chromium. Phone browsers also pause tabs in the background and when the screen locks, and a paused validator does not
+                      vote.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">Is there a server?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      There is no BrowserChain server. GitHub Pages serves the static files, and everything else runs in the tabs. To connect
+                      browsers on different machines, BrowserChain uses public services it does not run: six public Nostr relays carry the
+                      WebRTC connection setup, and public STUN servers from Google and Cloudflare (Trystero’s defaults) help the browsers find a
+                      direct path. As with any WebRTC app, peers and relays can see your IP address.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">What data stays in my browser?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <ul class="x-list">
+                      <li>
+                        <strong>IndexedDB</strong>, one database per network and identity slot: your validator’s secret key and name, its
+                        settings, its ledgers, transactions and snapshots, its latest SCP messages, and the validators it has seen.
+                      </li>
+                      <li>
+                        <strong>Local storage:</strong> wallet keys (unencrypted), wallet activity, the theme and a few view choices. Session
+                        storage keeps the XDR you type in the Lab.
+                      </li>
+                      <li>
+                        With <code>?fresh=1</code> the validator keeps everything in memory. The wallet still uses local storage.
+                      </li>
+                    </ul>
+                    <p>
+                      What leaves your browser is what a validator shares with its peers: its name and signed statuses, SCP messages,
+                      transactions and transaction sets, and ledgers and snapshots for peers that catch up.
+                    </p>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <h3 class="text-base font-semibold text-fg">Can I run it myself?</h3>
+                  <div class="x-prose mt-2 text-[15px]">
+                    <p>
+                      Yes. Clone the repository, run <code>npm install</code> and <code>npm run dev</code>, and open
+                      <code>http://localhost:5173</code> in two or three tabs. To reach other machines, run <code>npm run build</code> and
+                      serve <code>dist/</code> from the root of any static host. <code>npm test</code> runs the unit, simulation and golden tests, and
+                      <code>npm run e2e</code> runs Playwright.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </article>
+        </div>
+      </main>
+
+      <footer class="mt-16 border-t border-line">
+        <div class="mx-auto flex max-w-[64rem] flex-col gap-6 px-4 py-10 sm:px-6">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center gap-2 text-sm text-fg-3">
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="none" aria-hidden="true" class="shrink-0">
+                <rect x="2.5" y="4.5" width="27" height="23" rx="6" stroke="var(--bc-ledger-fill)" stroke-width="2" />
+                <path d="M2.5 10.5h27" stroke="var(--bc-ledger-fill)" stroke-width="2" />
+                <path d="M10 22.5 16 15l6 7.5H10Z" stroke="var(--bc-consensus)" stroke-width="1.6" stroke-linejoin="round" />
+                <circle cx="16" cy="15" r="2.4" fill="var(--bc-panel)" stroke="var(--bc-consensus)" stroke-width="1.6" />
+                <circle cx="10" cy="22.5" r="2.4" fill="var(--bc-panel)" stroke="var(--bc-network)" stroke-width="1.6" />
+                <circle cx="22" cy="22.5" r="2.4" fill="var(--bc-ledger-fill)" />
+              </svg>
+              <span>BrowserChain is a play-money network where every browser tab is a validator.</span>
+            </div>
+            <ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              <li><a class="text-fg-2 transition-colors hover:text-fg" href="./">Open BrowserChain</a></li>
+              <li><a class="text-fg-2 transition-colors hover:text-fg" href="https://github.com/kaankacar/browserchain">Source on GitHub</a></li>
+              <li>
+                <a class="text-fg-2 transition-colors hover:text-fg" href="https://github.com/kaankacar/browserchain/blob/main/docs/ARCHITECTURE.md"
+                  >Architecture</a
+                >
+              </li>
+              <li>
+                <a class="text-fg-2 transition-colors hover:text-fg" href="https://github.com/kaankacar/browserchain/blob/main/NOTICE">NOTICE</a>
+              </li>
+            </ul>
+          </div>
+          <p class="max-w-3xl text-xs leading-relaxed text-fg-3">
+            The SCP and ledger logic is ported from <a class="x-link" href="https://github.com/stellar/stellar-core">stellar-core</a>,
+            Copyright 2014-2020 Stellar Development Foundation and contributors, under the
+            <a class="x-link" href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a>. See
+            <a class="x-link" href="https://github.com/kaankacar/browserchain/blob/main/NOTICE">NOTICE</a>.
+          </p>
+        </div>
+      </footer>
+    </div>
   </body>
 </html>
