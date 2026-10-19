@@ -3,6 +3,7 @@ import {
   BookOpen,
   FlaskConical,
   LayoutDashboard,
+  Lightbulb,
   Menu,
   Moon,
   Search,
@@ -24,13 +25,15 @@ import { href, sectionOf, type Route, type Section } from '../lib/route';
 import { useNodeState } from '../state/NodeProvider';
 import { SearchBox } from './SearchBox';
 
-const NAV: { section: Section; label: string; href: string; icon: LucideIcon; blurb: string }[] = [
+// section is null for links that leave the app (the how-it-works page).
+const NAV: { section: Section | null; label: string; href: string; icon: LucideIcon; blurb: string }[] = [
   { section: 'overview', label: 'Overview', href: href.overview(), icon: LayoutDashboard, blurb: 'Live consensus and ledgers' },
   { section: 'validator', label: 'Validator', href: href.validator(), icon: Server, blurb: 'This tab’s node, quorum and SCP' },
   { section: 'explorer', label: 'Explorer', href: href.ledgers(), icon: Blocks, blurb: 'Ledgers, transactions, accounts' },
   { section: 'wallet', label: 'Wallet', href: href.wallet(), icon: Wallet, blurb: 'Test keys, payments, DEX' },
   { section: 'lab', label: 'Lab', href: href.lab(), icon: FlaskConical, blurb: 'Decode, build, sign, submit' },
-  { section: 'about', label: 'About', href: href.about(), icon: BookOpen, blurb: 'How it works' },
+  { section: 'about', label: 'About', href: href.about(), icon: BookOpen, blurb: 'What it is and its limits' },
+  { section: null, label: 'How it works', href: './how-it-works.html', icon: Lightbulb, blurb: 'Validators, SCP and how it was built' },
 ];
 
 function NetworkPill({ mock }: { mock: boolean }) {
@@ -77,7 +80,6 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
   const section = sectionOf(route);
 
@@ -90,15 +92,14 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
     if (searchOpen) mobileSearchRef.current?.focus();
   }, [searchOpen]);
 
-  // "/" focuses search; Escape closes the menu.
+  // "/" opens search; Escape closes the menu and search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
       if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
-        if (searchRef.current && searchRef.current.offsetParent !== null) searchRef.current.focus();
-        else setSearchOpen(true);
+        setSearchOpen(true);
       }
       if (e.key === 'Escape') {
         setMenuOpen(false);
@@ -130,17 +131,17 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
             </span>
           </a>
           <NetworkPill mock={mock} />
-          <nav aria-label="Main" className="ml-2 hidden lg:block">
+          <nav aria-label="Main" className="ml-2 hidden xl:block">
             <ul className="flex items-center gap-0.5">
               {NAV.map((n) => {
-                const on = n.section === section;
+                const on = n.section !== null && n.section === section;
                 return (
-                  <li key={n.section}>
+                  <li key={n.label}>
                     <a
                       href={n.href}
                       aria-current={on ? 'page' : undefined}
                       className={cx(
-                        'flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+                        'flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-sm font-medium transition-colors',
                         on ? 'bg-hover text-fg' : 'text-fg-3 hover:text-fg',
                       )}
                     >
@@ -153,11 +154,9 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
             </ul>
           </nav>
           <div className="ml-auto flex items-center gap-1">
-            <SearchBox ref={searchRef} className="hidden w-64 xl:block 2xl:w-72" shortcut />
             <IconButton
               icon={Search}
               label="Search"
-              className="xl:hidden"
               aria-expanded={searchOpen}
               onClick={() => setSearchOpen((o) => !o)}
             />
@@ -166,7 +165,7 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
             <IconButton
               icon={menuOpen ? X : Menu}
               label={menuOpen ? 'Close menu' : 'Open menu'}
-              className="lg:hidden"
+              className="xl:hidden"
               aria-expanded={menuOpen}
               aria-controls="bc-mobile-nav"
               onClick={() => setMenuOpen((o) => !o)}
@@ -174,17 +173,17 @@ export function Shell({ route, mock, children }: { route: Route; mock: boolean; 
           </div>
         </div>
         {searchOpen ? (
-          <div className="border-t border-line px-4 py-3 xl:hidden">
+          <div className="border-t border-line px-4 py-3">
             <SearchBox ref={mobileSearchRef} onDone={() => setSearchOpen(false)} />
           </div>
         ) : null}
         {menuOpen ? (
-          <nav id="bc-mobile-nav" aria-label="Main" className="border-t border-line lg:hidden">
+          <nav id="bc-mobile-nav" aria-label="Main" className="border-t border-line xl:hidden">
             <ul className="mx-auto grid max-w-[1280px] grid-cols-1 gap-1 p-3 sm:grid-cols-2">
               {NAV.map((n) => {
-                const on = n.section === section;
+                const on = n.section !== null && n.section === section;
                 return (
-                  <li key={n.section}>
+                  <li key={n.label}>
                     <a
                       href={n.href}
                       aria-current={on ? 'page' : undefined}

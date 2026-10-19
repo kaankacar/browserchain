@@ -56,8 +56,11 @@ test('wallet: fund, send 100 XLM, see it on another tab and in the explorer', as
     expect((await status(B.page)).lcl.seq).toBeLessThanOrEqual(appliedSeq + 2);
     await expect(A.page.getByRole('list', { name: 'Balances' })).toContainText('9,899.9999');
 
-    // C: the explorer finds the transaction by its hash.
-    await C.page.getByLabel('Search accounts, transactions and ledgers').fill(txHash);
+    // C: the explorer finds the transaction by its hash. Below 1536 px the
+    // header shows a search button instead of the box.
+    const search = C.page.getByLabel('Search accounts, transactions and ledgers').filter({ visible: true });
+    if ((await search.count()) === 0) await C.page.getByRole('button', { name: 'Search', exact: true }).click();
+    await search.first().fill(txHash);
     await C.page.keyboard.press('Enter');
     await expect(C.page).toHaveURL(new RegExp(`#/tx/${txHash}$`));
     await expect(C.page.getByRole('heading', { name: 'Applied successfully' })).toBeVisible();
