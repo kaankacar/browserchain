@@ -1,0 +1,8 @@
+node_modules
+dist
+.reference
+test-results
+playwright-report
+*.log
+.DS_Store
+dist-e2e-*

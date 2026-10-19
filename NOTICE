@@ -1,0 +1,13 @@
+BrowserChain
+
+This project contains TypeScript ports of parts of stellar-core:
+the Stellar Consensus Protocol (src/scp/*), and transaction, ledger and
+order-book logic (src/ledger/*). Each ported file names its source file in
+its first comment line.
+
+stellar-core
+Copyright 2014-2020 Stellar Development Foundation and contributors.
+Licensed under the Apache License, Version 2.0. A copy of the license is in
+licenses/stellar-core-LICENSE-APACHE.txt; it applies to the ported files.
+https://github.com/stellar/stellar-core
+https://www.apache.org/licenses/LICENSE-2.0
